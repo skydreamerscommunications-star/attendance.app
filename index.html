@@ -25,11 +25,7 @@
                 <i class="fas fa-clipboard-check text-blue-600 text-2xl"></i>
             </div>
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Attendance Portal</h1>
-            <p class="text-gray-600">Mark your attendance for the night shift</p>
-            <div class="mt-4 inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg">
-                <i class="fas fa-info-circle"></i>
-                <span class="text-sm">Marking window: 6:30 PM → 12:30 AM</span>
-            </div>
+            <p class="text-gray-600">Submit your attendance</p>
         </div>
 
         <!-- Main Card -->
@@ -71,11 +67,8 @@
                         <input type="password" 
                                id="uidInput" 
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                               placeholder="Enter your unique identifier"
+                               placeholder="Enter your identifier"
                                required>
-                        <p class="text-xs text-gray-500 mt-2">
-                            <i class="fas fa-shield-alt mr-1"></i> This is your personal Firebase UID
-                        </p>
                     </div>
 
                     <!-- Submit Button -->
@@ -97,21 +90,7 @@
                         <!-- Dynamic content -->
                     </div>
                 </div>
-
-                <!-- Footer Info -->
-                <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                    <p class="text-xs text-gray-500">
-                        <i class="fas fa-clock mr-1"></i> All timing rules enforced server-side
-                        <span class="mx-2">•</span>
-                        <i class="fas fa-database mr-1"></i> Duplicate prevention active
-                    </p>
-                </div>
             </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="text-center mt-8 text-gray-500 text-sm fade-in">
-            <p>Attendance System v1.0 • For official use only</p>
         </div>
     </div>
 
@@ -156,11 +135,11 @@
                         agentSelect.remove(1);
                     }
 
-                    // Add agents
+                    // Add agents (without ID in display)
                     data.agents.forEach(agent => {
                         const option = document.createElement('option');
                         option.value = agent.id;
-                        option.textContent = `${agent.name} (${agent.id})`;
+                        option.textContent = agent.name; // Only show name, not ID
                         agentSelect.appendChild(option);
                     });
 
@@ -190,11 +169,11 @@
                 if (data.success) {
                     if (data.marked) {
                         statusText.innerHTML = `<span class="text-green-600 font-semibold">Attendance Marked</span>`;
-                        statusDetails.textContent = `Marked at ${data.time || '--:--'} for shift ${data.shiftKey || '--'}`;
+                        statusDetails.textContent = `Marked at ${data.time || '--:--'}`;
                         statusIcon.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
                     } else {
                         statusText.innerHTML = `<span class="text-amber-600 font-semibold">Pending Attendance</span>`;
-                        statusDetails.textContent = `Ready to mark for shift ${data.shiftKey || '--'}`;
+                        statusDetails.textContent = `Ready to mark`;
                         statusIcon.innerHTML = '<i class="fas fa-clock text-amber-500"></i>';
                     }
                 } else {
@@ -331,11 +310,7 @@
                     return;
                 }
 
-                // UID length check (basic validation)
-                if (uid.length < 10) {
-                    showResultMessage(false, 'UID appears to be too short');
-                    return;
-                }
+                // Removed UID length validation - backend handles all validation
 
                 await markAttendance(agentId, uid);
             });
