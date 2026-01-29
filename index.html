@@ -1,1 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance System | Agent Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✅</text></svg>">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .shake { animation: shake 0.5s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl">
+        <!-- Header -->
+        <div class="text-center mb-8 fade-in">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                <i class="fas fa-clipboard-check text-blue-600 text-2xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Attendance Portal</h1>
+            <p class="text-gray-600">Mark your attendance for the night shift</p>
+            <div class="mt-4 inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg">
+                <i class="fas fa-info-circle"></i>
+                <span class="text-sm">Marking window: 6:30 PM → 12:30 AM</span>
+            </div>
+        </div>
 
+        <!-- Main Card -->
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden fade-in">
+            <div class="p-6 md:p-8">
+                <!-- Status Panel -->
+                <div id="statusPanel" class="mb-8 p-4 rounded-lg bg-gray-50 border border-gray-200 hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-gray-700">Current Status</h3>
+                            <div id="statusText" class="text-sm text-gray-600 mt-1">Loading...</div>
+                            <div id="statusDetails" class="text-xs text-gray-500 mt-1"></div>
+                        </div>
+                        <div id="statusIcon" class="text-2xl">
+                            <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form id="attendanceForm" class="space-y-6">
+                    <!-- Agent Selection -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-user mr-2"></i>Select Agent
+                        </label>
+                        <select id="agentSelect" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                required>
+                            <option value="" disabled selected>-- Select your name --</option>
+                        </select>
+                    </div>
+
+                    <!-- UID Input -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-key mr-2"></i>Authentication UID
+                        </label>
+                        <input type="password" 
+                               id="uidInput" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                               placeholder="Enter your unique identifier"
+                               required>
+                        <p class="text-xs text-gray-500 mt-2">
+                            <i class="fas fa-shield-alt mr-1"></i> This is your personal Firebase UID
+                        </p>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="pt-4">
+                        <button type="submit" 
+                                id="submitBtn"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 focus:ring-4 focus:ring-blue-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span id="btnText">Mark Attendance</span>
+                            <span id="btnSpinner" class="hidden ml-2">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Result Message -->
+                <div id="resultMessage" class="mt-8 hidden">
+                    <div class="p-4 rounded-lg border" id="messageContent">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- Footer Info -->
+                <div class="mt-8 pt-6 border-t border-gray-100 text-center">
+                    <p class="text-xs text-gray-500">
+                        <i class="fas fa-clock mr-1"></i> All timing rules enforced server-side
+                        <span class="mx-2">•</span>
+                        <i class="fas fa-database mr-1"></i> Duplicate prevention active
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-gray-500 text-sm fade-in">
+            <p>Attendance System v1.0 • For official use only</p>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE = "https://script.google.com/macros/s/AKfycbxVbDFG8ShtChrLZ7AcEl7ZWpMQONQ5m8A1yd-k3M5Q2wbEGo63My7qBGmW04QWJuQAag/exec";
+
+        // State Management
+        let currentAgentId = null;
+        let isProcessing = false;
+
+        // DOM Elements
+        const agentSelect = document.getElementById('agentSelect');
+        const uidInput = document.getElementById('uidInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const statusPanel = document.getElementById('statusPanel');
+        const statusText = document.getElementById('statusText');
+        const statusDetails = document.getElementById('statusDetails');
+        const statusIcon = document.getElementById('statusIcon');
+        const resultMessage = document.getElementById('resultMessage');
+        const messageContent = document.getElementById('messageContent');
+        const attendanceForm = document.getElementById('attendanceForm');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadAgents();
+            setupEventListeners();
+        });
+
+        // Load agents from API
+        async function loadAgents() {
+            try {
+                showLoading('Loading agents...');
+                const response = await fetch(`${API_BASE}?action=agents`);
+                const data = await response.json();
+
+                if (data.success && data.agents) {
+                    // Clear existing options except the first one
+                    while (agentSelect.options.length > 1) {
+                        agentSelect.remove(1);
+                    }
+
+                    // Add agents
+                    data.agents.forEach(agent => {
+                        const option = document.createElement('option');
+                        option.value = agent.id;
+                        option.textContent = `${agent.name} (${agent.id})`;
+                        agentSelect.appendChild(option);
+                    });
+
+                    hideLoading();
+                } else {
+                    throw new Error('Failed to load agents');
+                }
+            } catch (error) {
+                showError('Failed to load agent list. Please refresh the page.');
+                console.error('Agent loading error:', error);
+            }
+        }
+
+        // Check attendance status when agent is selected
+        async function checkStatus(agentId) {
+            if (!agentId) return;
+
+            try {
+                statusPanel.classList.remove('hidden');
+                statusIcon.innerHTML = '<i class="fas fa-spinner fa-spin text-gray-400"></i>';
+                statusText.textContent = 'Checking status...';
+                statusDetails.textContent = '';
+
+                const response = await fetch(`${API_BASE}?action=status&agentId=${encodeURIComponent(agentId)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.marked) {
+                        statusText.innerHTML = `<span class="text-green-600 font-semibold">Attendance Marked</span>`;
+                        statusDetails.textContent = `Marked at ${data.time || '--:--'} for shift ${data.shiftKey || '--'}`;
+                        statusIcon.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
+                    } else {
+                        statusText.innerHTML = `<span class="text-amber-600 font-semibold">Pending Attendance</span>`;
+                        statusDetails.textContent = `Ready to mark for shift ${data.shiftKey || '--'}`;
+                        statusIcon.innerHTML = '<i class="fas fa-clock text-amber-500"></i>';
+                    }
+                } else {
+                    statusText.textContent = 'Status check failed';
+                    statusIcon.innerHTML = '<i class="fas fa-exclamation-circle text-gray-400"></i>';
+                }
+            } catch (error) {
+                statusText.textContent = 'Network error';
+                statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle text-red-400"></i>';
+            }
+        }
+
+        // Mark attendance
+        async function markAttendance(agentId, uid) {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            setProcessingState(true);
+            clearResultMessage();
+
+            try {
+                const url = `${API_BASE}?action=mark&agentId=${encodeURIComponent(agentId)}&uid=${encodeURIComponent(uid)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                showResultMessage(data.success, data.message);
+                
+                // Refresh status if successful
+                if (data.success) {
+                    await checkStatus(agentId);
+                    uidInput.value = ''; // Clear UID after successful submission
+                }
+            } catch (error) {
+                showResultMessage(false, 'Network error. Please try again.');
+                console.error('Mark attendance error:', error);
+            } finally {
+                isProcessing = false;
+                setProcessingState(false);
+            }
+        }
+
+        // UI Helpers
+        function showLoading(message) {
+            btnText.textContent = message || 'Loading...';
+            btnSpinner.classList.remove('hidden');
+            submitBtn.disabled = true;
+        }
+
+        function hideLoading() {
+            btnText.textContent = 'Mark Attendance';
+            btnSpinner.classList.add('hidden');
+            submitBtn.disabled = false;
+        }
+
+        function setProcessingState(processing) {
+            submitBtn.disabled = processing;
+            if (processing) {
+                btnSpinner.classList.remove('hidden');
+                btnText.textContent = 'Processing...';
+            } else {
+                btnSpinner.classList.add('hidden');
+                btnText.textContent = 'Mark Attendance';
+            }
+        }
+
+        function showResultMessage(success, message) {
+            resultMessage.classList.remove('hidden');
+            messageContent.className = 'p-4 rounded-lg border';
+            
+            if (success) {
+                messageContent.classList.add('bg-green-50', 'border-green-200', 'text-green-800');
+                messageContent.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-green-500 mr-3 text-xl"></i>
+                        <div>
+                            <p class="font-semibold">Success</p>
+                            <p class="text-sm mt-1">${message}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                messageContent.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+                messageContent.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle text-red-500 mr-3 text-xl"></i>
+                        <div>
+                            <p class="font-semibold">Unable to Process</p>
+                            <p class="text-sm mt-1">${message}</p>
+                        </div>
+                    </div>
+                `;
+                messageContent.classList.add('shake');
+                setTimeout(() => messageContent.classList.remove('shake'), 500);
+            }
+
+            // Auto-hide success messages after 5 seconds
+            if (success) {
+                setTimeout(() => {
+                    resultMessage.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        function clearResultMessage() {
+            resultMessage.classList.add('hidden');
+        }
+
+        function showError(message) {
+            showResultMessage(false, message);
+        }
+
+        // Event Listeners
+        function setupEventListeners() {
+            // Agent selection change
+            agentSelect.addEventListener('change', (e) => {
+                currentAgentId = e.target.value;
+                if (currentAgentId) {
+                    checkStatus(currentAgentId);
+                } else {
+                    statusPanel.classList.add('hidden');
+                }
+            });
+
+            // Form submission
+            attendanceForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const agentId = agentSelect.value;
+                const uid = uidInput.value.trim();
+
+                // Basic frontend validation (backend does the real validation)
+                if (!agentId || !uid) {
+                    showResultMessage(false, 'Please select an agent and enter your UID');
+                    return;
+                }
+
+                // UID length check (basic validation)
+                if (uid.length < 10) {
+                    showResultMessage(false, 'UID appears to be too short');
+                    return;
+                }
+
+                await markAttendance(agentId, uid);
+            });
+
+            // Clear result message when form is interacted with
+            attendanceForm.addEventListener('input', () => {
+                if (!resultMessage.classList.contains('hidden')) {
+                    clearResultMessage();
+                }
+            });
+
+            // Prevent form submission on Enter in UID field
+            uidInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !agentSelect.value) {
+                    e.preventDefault();
+                    agentSelect.focus();
+                }
+            });
+        }
+
+        // Error handling for unhandled promises
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            showResultMessage(false, 'An unexpected error occurred');
+            setProcessingState(false);
+            isProcessing = false;
+        });
+    </script>
+</body>
+</html>
